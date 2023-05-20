@@ -96,7 +96,9 @@ DELETE注解一般必须添加相对路径或绝对路径或者全路径，如�
 
 *@Field*
 
-POST请求中传入键值对数值段，用于发送一个表单请求；
+一定要加上*@FormUrlEncode* ，不然会报错；
+
+*POST*请求中传入键值对数值段，用于发送一个表单请求；
 
 用`String.valueOf()` 把参数值转换为String，然后进行URL编码,当参数值为null值时，会自动忽略，如果传入的是一个*List*或*array*，则为每一个非空的*item*拼接一个键值对，每一个键值对中的键是相同的，值就是非空item的值，如: `name=张三&name=李四&name=王五` ，另外,如果item的值有空格，在拼接时会自动忽略，例如某个item的值为:`张 三` ，则拼接后为`name=张三` 
 
@@ -119,19 +121,85 @@ Call<ResponseBody> example(@Field("name") String... names);
 
 *@Body*
 
-使用这个注解，将Java对象（自定义数据类型）转化为JSON字段发送到服务器；
+使用这个注解，将Java对象（自定义数据类型）转化为*JSON*字段发送到服务器；
 
- @Body 和@Field 不能一起使用，并且不能与@FormUrlEncode 或@MultiPart 结合使用；
+ *@Body* 和*@Field* 不能一起使用，并且不能与*@FormUrlEncode* （表单请求，会发生冲突）或@MultiPart 结合使用；
 
-当你发送一个POST/PUT请求但是不想用表单传输，可以传递一个实体类，retrofit会将实体类序列化并将序列化的结果直接发送过去；
+当你发送一个*POST/PUT*请求但是不想用表单传输，可以传递一个实体类，`retrofit` 会将实体类序列化并将序列化的结果直接发送过去；
 
-可封装成`FormBody` 
+如果提交的是一个*Map*，相当于*@Field*，但是Map必须封装成`FormBody` 
 
 ```java
 FormBody formBody=new FormBody.Builder().build();
 ```
 
-*@Part*
+**JSON请求和Form表单请求的区别**
+
+1. `content_type` 不一致；
+2. 数据格式不一致；
+
+retrofit传递参数一般如下：
+
+```java
+ @FormUrlEncoded
+ @POST("xxxxxxx")
+ Call<Object> login( @Field("参数1") String reason，@Field("参数2") String reason);
+```
+
+底层会自动封装一个请求体，并通过注解将参数字符串传递给后台；
+
+如果提交JSON数据如下：
+
+```java
+@POST("xxxxxxx")   
+Call<Object> login( @Body JSONObject parmas );  
+```
+
+无表单参数，相当于Java中的bean对象；
+
+但如果参数过多，按照第一种方式写代码量很大，我们可以自己封装一个请求体`RequestBody` ，可以如下封装：
+
+```java
+//创建HashMap并插入数据
+public HashMap<String, String> login(String xxx...) {
+HashMap<String, String> hashMap = new HashMap<>();
+  hashMap.put("参数1", xxx);
+  hashMap.put("参数2", xxx);
+  hashMap.put("参数3", xxx);
+  hashMap.put("参数4", xxx);
+  hashMap.put("参数5", xxx);
+  hashMap.put("参数6", xxx);
+  return hashMap;
+}
+```
+
+```java
+public RequestBody getRequestBody(HashMap<String, String> hashMap) {
+StringBuffer data = new StringBuffer();
+if (hashMap != null && hashMap.size() > 0) {
+  Iterator iter = hashMap.entrySet().iterator();
+  while (iter.hasNext()) {
+    Map.Entry entry = (Map.Entry) iter.next();
+    Object key = entry.getKey();
+    Object val = entry.getValue();
+      //需要转化为键值对形式
+    data.append(key).append("=").append(val).append("&");
+  }
+}
+    String jso = data.substring(0, data.length() - 1);
+    //封装
+    RequestBody requestBody =
+    RequestBody.create(MediaType.parse("application/x-www-form-urlencoded; charset=utf-8"),jso);
+    //第一个参数是MediaType，是媒体类型，第二个参数类型可以是String，File等
+    return requestBody;
+ }
+```
+
+**MediaType**决定浏览器将以什么形式，什么编码方式对图片进行解析；
+
+[HTTP Content-type 对照表 (oschina.net)](https://tool.oschina.net/commons)
+
+@Part*
 
 单个文件上传；
 
@@ -143,9 +211,9 @@ FormBody formBody=new FormBody.Builder().build();
 
 *@Header*
 
-动态添加消息报头，必须给@Header提供相应的参数，如果参数的值为空header将会被忽略，否则就调用参数值的toString()方法并使用返回结果；
+动态添加消息报头，必须给*@Header*提供相应的参数，如果参数的值为空header将会被忽略，否则就调用参数值的`toString()` 方法并使用返回结果；
 
-当传入一个List或array时，拼接每个非空的item的值到请求头中；
+当传入一个`List` 或`array` 时，拼接每个非空的`item` 的值到请求头中；
 
 具有相同名称的请求头不会相互覆盖，而是会照样添加到请求头中；
 
@@ -197,6 +265,16 @@ retrofit网络请求返回对象必须是`Call` ，申请完A接口后，我们�
 | ------ | -------------------------- |
 | Body   | 记录所有的东西             |
 | Header | 记录请求和相应行，以及标头 |
+
+# 文件
+
+### 单个文件
+
+可以使用`RequestBody` 封装图片
+
+### 文件和字段
+
+`MultipartBody.Part` 
 
 # 解析
 
